@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Studying Session</title>
+
+  <link rel="stylesheet" href="css/index.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+ 
+  <canvas id="sky"></canvas>
+
+  <div class="glass">
+
+    <div class="view setup-view">
+      <p class="description">
+        Select how long you’d like to study, pick a weather mood,
+        then hit <strong>Start Studying</strong>.
+      </p>
+
+      <div class="controls">
+       
+        <div class="control">
+          <label>1. Study Duration:</label>
+          <div class="duration-picker">
+            <select id="hrs"></select><span>h</span>
+            <select id="mins"></select><span>m</span>
+            <select id="secs"></select><span>s</span>
+          </div>
+        </div>
+
+        <select id="study-weather" class="modern-select">
+          <option value="">— choose —</option>
+          <option value="calm">Calm</option>
+          <option value="cloudy">Cloudy</option>
+          <option value="rainy">Rainy</option>
+          <option value="snow">Snow</option>
+        </select>
+
+        <div class="control">
+          <label for="time-of-day">3. Select Time of Day:</label>
+          <select id="time-of-day" class="modern-select">
+            <option value="">— choose —</option>
+            <option value="day">Day</option>
+            <option value="night">Night</option>
+          </select>
+        </div>
+      </div>
+
+      <button id="startBtn" class="primary-btn">Start Studying</button>
+    </div>
+
+    <div class="view timer-view">
+      <p id="countdown" class="big-time">00 : 00 : 00</p>
+      <button id="backBtn" class="primary-btn">← Back</button>
+    </div>
+  </div>
+
+  <script>
+  const hrs = document.getElementById('hrs');
+  const mins = document.getElementById('mins');
+  const secs = document.getElementById('secs');
+  const studyWeather = document.getElementById('study-weather');
+  const timeOfDay = document.getElementById('time-of-day');
+  const glass = document.querySelector('.glass');
+  const countdownEl = document.getElementById('countdown');
+  const startBtn = document.getElementById('startBtn');
+  const backBtn = document.getElementById('backBtn');
+
+  const fill = (sel, max) => {
+    for (let i = 0; i <= max; i++) {
+      sel.add(new Option(i.toString().padStart(2, '0'), i));
+    }
+  };
+
+  window.addEventListener('DOMContentLoaded', () => {
+    fill(hrs, 12);
+    fill(mins, 59);
+    fill(secs, 59);
+  });
+
+  let timerID = null;
+
+  startBtn.onclick = () => {
+
+    const total = (+hrs.value || 0) * 3600 + (+mins.value || 0) * 60 + (+secs.value || 0);
+    if (!total) {
+      alert('Pick a duration first!');
+      return;
+    }
+    
+    if (timerID) {
+      clearInterval(timerID);
+    }
+
+    startSky();
+    startCountdown(total);
+    glass.classList.add('show-timer');
+  };
+
+  backBtn.onclick = () => {
+    clearInterval(timerID);
+    timerID = null;
+    stopSky();
+    document.title = 'Studying Session';
+    glass.classList.remove('show-timer');
+  };
+
+  function startCountdown(sec) {
+    updateClock(sec);
+    timerID = setInterval(() => {
+      sec--;
+
+      if (sec < 0) {
+        clearInterval(timerID);
+        timerID = null;
+        stopSky();
+        document.title = 'Studying Session';
+        glass.classList.remove('show-timer');
+      } 
+      
+      else {
+        updateClock(sec);
+      }
+    }, 1000);
+  }
+
+  function updateClock(sec) {
+    const h = String(Math.floor(sec / 3600)).padStart(2, '0');
+    const m = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
+    const s = String(sec % 60).padStart(2, '0');
+    const label = `${h} : ${m} : ${s}`;
+    countdownEl.textContent = label;
+    document.title = `${label}`;
+  }
+
+  const canvas = document.getElementById('sky'), ctx = canvas.getContext('2d');
+  let W, H, particles = [], rafID = null,
+      mode = { 
+        weather: 'calm', period: 'day' 
+      };
+
+  const coldBlue  = ['#b9d7ff', '#dfefff'], stormGray = ['#4a5870', '#6c7890'], nightNavy = ['#0d1226', '#1c2541'], snowSkies = ['#d8e7f5', '#edf4fb'];
+
+  const resize = () => {
+    W = canvas.width = innerWidth;
+    H = canvas.height = innerHeight;
+  };
+
+  addEventListener('resize', resize);
+  resize();
+
+  function startSky() {
+    particles.length = 0;
+    mode.weather = studyWeather.value || 'calm';
+    mode.period = timeOfDay.value || 'day';
+    document.body.classList.toggle('night-mode', mode.period === 'night');
+   
+    if (mode.weather === 'rainy') {
+   
+      for (let i = 0; i < 140; i++) {
+        particles.push(new Rain());
+      }
+    }
+    
+    if (mode.weather === 'snow') {
+      
+      for (let i = 0; i < 120; i++) {
+        particles.push(new Snow());
+      }
+    }
+    
+    if (mode.weather === 'cloudy') {
+     
+      for (let i = 0; i < 6; i++) {
+        particles.push(new MistPatch(true));
+      }
+    }
+    
+    if (mode.weather === 'calm') {
+     
+      if (mode.period === 'day') {
+        particles.push(new SunGlow());
+      } 
+      
+      else {
+        particles.push(new MoonGlow());
+      }
+    }
+    
+    if (!rafID) {
+      loop();
+    }
+
+  }
+
+  function stopSky() {
+    cancelAnimationFrame(rafID);
+    rafID = null;
+    ctx.clearRect(0, 0, W, H);
+    document.body.classList.remove('night-mode');
+  }
+
+  function loop() {
+    rafID = requestAnimationFrame(loop);
+
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    const pick = (arr) => {
+      g.addColorStop(0, arr[0]);
+      g.addColorStop(1, arr[1]);
+    };
+
+    if (mode.period === 'night' && mode.weather !== 'rainy') {
+      ctx.fillStyle = 'rgba(255,255,255,.6)';
+      
+      for (let i = 0; i < 60; i++) {
+        ctx.fillRect((i*37)%W, ((i*91)%H), 1, 1);
+      }
+    }
+
+    if (mode.period === 'night') {
+      pick(nightNavy);
+    } 
+    
+    else if (mode.weather === 'rainy') {
+      pick(stormGray);
+    } 
+    
+    else if (mode.weather === 'snow') {
+      pick(snowSkies);
+    } 
+    
+    else {
+      pick(coldBlue);
+    }
+
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    particles.forEach(p => p.update());
+  }
+
+  class Rain {
+    constructor() {
+      this.reset();
+    }
+
+    reset() {
+      this.x = Math.random() * W;
+      this.y = Math.random() * -H;
+      this.len = 15 + Math.random() * 10;
+      this.v = 5 + Math.random() * 4;
+    }
+
+    update() {
+      this.y += this.v;
+      this.x += 0.6;
+      ctx.strokeStyle = 'rgba(255,255,255,.25)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y);
+      ctx.lineTo(this.x - 2, this.y - this.len);
+      ctx.stroke();
+
+      if (this.y > H) {
+        this.reset();
+      }
+
+    }
+
+  }
+
+  class Snow {
+    constructor() {
+      this.reset();
+    }
+
+    reset() {
+      this.x = Math.random() * W;
+      this.y = Math.random() * -H;
+      this.r = 1 + Math.random() * 3;
+      this.v = 0.6 + Math.random() * 1;
+    }
+
+    update() {
+      this.y += this.v;
+      this.x += Math.sin(this.y * 0.01);
+      ctx.fillStyle = 'rgba(255,255,255,.85)';
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.r, 0, 6.283);
+      ctx.fill();
+      
+      if (this.y > H) {
+        this.reset();
+      }
+
+    }
+
+  }
+
+  class SunGlow {
+    update() {
+      const r = Math.min(W, H) * 0.25;
+      const x = W * 0.8;
+      const y = H * 0.2;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, 'rgba(255,255,255,.9)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, 6.283);
+      ctx.fill();
+    }
+  }
+
+  class MoonGlow {
+    update() {
+      const r = Math.min(W, H) * 0.12;
+      const x = W * 0.8;
+      const y = H * 0.25;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, 'rgba(255,255,255,.4)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, 6.283);
+      ctx.fill();
+    }
+  }
+
+  class MistPatch {
+    constructor(init = false) {
+      this.reset(init);
+    }
+
+    reset(initial = false) {
+      const s = Math.max(W, H) * 0.6;
+      this.r = s * (0.25 + Math.random() * 0.25);
+      this.x = initial ? Math.random() * W : -this.r;
+      this.y = Math.random() * H * 0.3;
+      this.vel = 0.05 + Math.random() * 0.12;
+      this.alpha = 0.3 + Math.random() * 0.2;
+    }
+    update() {
+      this.x += this.vel;
+      const g = ctx.createRadialGradient(
+        this.x + this.r * 0.4,
+        this.y + this.r * 0.4,
+        this.r * 0.2,
+        this.x,
+        this.y,
+        this.r
+      );
+
+      g.addColorStop(0, `rgba(255,255,255,${this.alpha})`);
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.r, 0, 6.283);
+      ctx.fill();
+      if (this.x - this.r > W) {
+        this.reset();
+      }
+    }
+  }
+  </script>
+
+</body>
+</html>
